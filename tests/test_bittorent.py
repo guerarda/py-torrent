@@ -141,3 +141,59 @@ def test_mult_peers_download_copy(workspace, assets_dir, create_mock_peer):
 
     time.sleep(2)
     assert Path(torrent_file).exists()
+
+
+@pytest.mark.manual
+def test_setup(workspace, assets_dir, create_mock_peer):
+    """Test downloading from a single seeder"""
+    payload_file = _copy_payload(str(Path(assets_dir) / "image.png"), workspace)
+    print(f"Payload file: {payload_file}")
+
+    # Create torrent
+    torrent_file = _create_torrent_file(payload_file, TRACKER_URL, workspace)
+    print(f"Torrent file: {torrent_file}")
+
+    # Create peer
+    peers = [
+        create_mock_peer(port, payload_file, torrent_file, workspace)
+        for port in [6100, 6101, 6102]
+    ]
+    print(f"Peers: {peers}")
+
+    time.sleep(2)
+    assert Path(torrent_file).exists()
+
+    settings = {
+        "listen_interfaces": f"0.0.0.0:{6881}",
+        "enable_dht": False,
+        "enable_lsd": False,
+    }
+
+    session = lt.session(settings)
+    info = lt.torrent_info(torrent_file)
+
+    # Create the temp directory, and copy the asset to it
+    peer_dir = Path(workspace) / f"peer_{6881}"
+    peer_dir.mkdir(exist_ok=True)
+
+    lt_params = {
+        "ti": info,
+        "save_path": str(peer_dir),
+    }
+
+    h = session.add_torrent(lt_params)
+
+    print(f"Downloading {info.name()}...")
+
+    # Download until complete
+    while not h.status().is_seeding:
+        s = h.status()
+        logger.info(
+            f"\rProgress: {s.progress * 100:.1f}% "
+            f"Down: {s.download_rate / 1000:.1f} kB/s "
+            f"Peers: {s.num_peers}"
+        )
+        time.sleep(1)
+
+    print("\nDownload complete!")
+    assert True
