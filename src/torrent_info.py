@@ -1,4 +1,5 @@
 import hashlib
+
 import requests
 
 from .bencode import Decoder, Encoder
@@ -6,7 +7,7 @@ from .bencode import Decoder, Encoder
 PEER_ID = "Hj5kP9xZ2qLmNb7vYc3w"
 
 
-class TorrentFile:
+class TorrentInfo:
     def __init__(self, metainfo: dict):
         self.metainfo = metainfo
 
@@ -78,8 +79,8 @@ class TorrentFile:
             raise Exception(r.status_code)
 
     @classmethod
-    def from_file(cls, file: str) -> "TorrentFile | None":
+    def from_file(cls, file: str) -> "TorrentInfo | None":
         with open(file, mode="rb") as f:
             d = Decoder(f.read())
         metainfo = d.read_dict()
-        return TorrentFile(metainfo)
+        return TorrentInfo(metainfo)

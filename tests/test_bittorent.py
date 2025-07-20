@@ -7,52 +7,14 @@ from pathlib import Path
 import libtorrent as lt
 import pytest
 
+from .utils import create_torrent_file, create_payload, copy_payload
+
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s", level=logging.DEBUG)
 logger = logging.getLogger()
 
 TRACKER_URL = "http://localhost:8080/announce"
 ASSETS_DIR = str(Path(__file__).parent / "assets")
 PEER_DIR_FMT = "peer_{}"
-
-
-def _create_torrent_file(payload_file: str, tracker: str, workspace: str):
-    """Create the torrent file for the content of the payload dir in the  workspace"""
-
-    payload_path = Path(workspace) / payload_file
-
-    fs = lt.file_storage()
-    lt.add_files(fs, str(payload_path))
-
-    t = lt.create_torrent(fs)
-    t.add_tracker(tracker)
-    t.set_creator("test-setup")
-
-    lt.set_piece_hashes(t, str(payload_path.parent))
-    torrent_data = lt.bencode(t.generate())
-
-    torrent_path = payload_path.with_suffix(".torrent")
-    with open(torrent_path, "wb") as f:
-        f.write(torrent_data)
-
-    logger.debug(f"Torrent file: {str(torrent_path)}")
-
-    return str(torrent_path)
-
-
-def _create_payload(workspace: str):
-    """Create test payload file in debug workspace"""
-    payload_file = Path(workspace) / "payload.dat"
-    payload_file.write_bytes(b"A" * (1024 * 1024))
-    return str(payload_file)
-
-
-def _copy_payload(payload: str, workspace: str):
-    """Copy the payload to the temp workspace"""
-    output = Path(workspace) / payload
-    shutil.copy(Path(ASSETS_DIR) / payload, output)
-    logger.debug(f"Payload file: {str(output)}")
-
-    return str(output)
 
 
 @pytest.fixture
@@ -115,8 +77,8 @@ def create_mock_peer():
 
 def test_simple_download(workspace, create_mock_peer):
     """Test downloading from a single seeder"""
-    payload_file = _create_payload(workspace)
-    torrent_file = _create_torrent_file(payload_file, TRACKER_URL, workspace)
+    payload_file = create_payload(workspace)
+    torrent_file = create_torrent_file(payload_file, TRACKER_URL, workspace)
 
     create_mock_peer(6881, payload_file, torrent_file, workspace)
 
@@ -126,8 +88,8 @@ def test_simple_download(workspace, create_mock_peer):
 
 def test_mult_peers_download_copy(workspace, create_mock_peer):
     """Test multiple peers downloading a file"""
-    payload_file = _copy_payload("image.png", workspace)
-    torrent_file = _create_torrent_file(payload_file, TRACKER_URL, workspace)
+    payload_file = copy_payload("image.png", ASSETS_DIR, workspace)
+    torrent_file = create_torrent_file(payload_file, TRACKER_URL, workspace)
 
     peers = [
         create_mock_peer(port, payload_file, torrent_file, workspace)
@@ -142,8 +104,8 @@ def test_mult_peers_download_copy(workspace, create_mock_peer):
 @pytest.mark.manual
 def test_setup(workspace, create_mock_peer):
     """Test the testing setup by creating a peer and make it download the torrent"""
-    payload_file = _copy_payload("image.png", workspace)
-    torrent_file = _create_torrent_file(payload_file, TRACKER_URL, workspace)
+    payload_file = copy_payload("image.png", ASSETS_DIR, workspace)
+    torrent_file = create_torrent_file(payload_file, TRACKER_URL, workspace)
 
     seeding_peers = [
         create_mock_peer(port, payload_file, torrent_file, workspace)
