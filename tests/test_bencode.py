@@ -131,7 +131,10 @@ class TestEncoder:
         """Test encoding of dictionaries."""
         encoder = Encoder()
         # Dict keys are sorted alphabetically in bencode
-        assert encoder.encode({b"spam": b"eggs", b"cow": b"moo"}) == b"d3:cow3:moo4:spam4:eggse"
+        assert (
+            encoder.encode({b"spam": b"eggs", b"cow": b"moo"})
+            == b"d3:cow3:moo4:spam4:eggse"
+        )
 
     def test_encode_empty_dict(self):
         """Test encoding of empty dictionary."""
@@ -141,7 +144,9 @@ class TestEncoder:
     def test_encode_nested_dict(self):
         """Test encoding of nested dictionaries."""
         encoder = Encoder()
-        assert encoder.encode({b"dict": {b"key": b"value"}}) == b"d4:dictd3:key5:valueee"
+        assert (
+            encoder.encode({b"dict": {b"key": b"value"}}) == b"d4:dictd3:key5:valueee"
+        )
 
     def test_encode_complex_structure(self):
         """Test encoding of complex nested structure."""
@@ -173,8 +178,10 @@ class TestRoundTrip:
     @pytest.fixture
     def decoder_factory(self):
         """Factory to create decoders with different inputs."""
+
         def _decoder(data):
             return Decoder(data)
+
         return _decoder
 
     def test_roundtrip_string(self, encoder, decoder_factory):
@@ -210,35 +217,41 @@ class TestRoundTrip:
         original = {
             b"files": [
                 {b"length": 12345, b"path": [b"dir", b"file.txt"]},
-                {b"length": 67890, b"path": [b"another.txt"]}
+                {b"length": 67890, b"path": [b"another.txt"]},
             ],
             b"name": b"test torrent",
             b"piece length": 262144,
-            b"pieces": b"hash" * 5
+            b"pieces": b"hash" * 5,
         }
         encoded = encoder.encode(original)
         decoded = decoder_factory(encoded).decode()
         assert decoded == original
 
 
-@pytest.mark.parametrize("encoded,expected", [
-    (b"4:test", b"test"),
-    (b"i0e", 0),
-    (b"le", []),
-    (b"de", {}),
-])
+@pytest.mark.parametrize(
+    "encoded,expected",
+    [
+        (b"4:test", b"test"),
+        (b"i0e", 0),
+        (b"le", []),
+        (b"de", {}),
+    ],
+)
 def test_parametrized_decode(encoded, expected):
     """Parametrized test for various decode scenarios."""
     decoder = Decoder(encoded)
     assert decoder.decode() == expected
 
 
-@pytest.mark.parametrize("data,expected", [
-    (b"test", b"4:test"),
-    (0, b"i0e"),
-    ([], b"le"),
-    ({}, b"de"),
-])
+@pytest.mark.parametrize(
+    "data,expected",
+    [
+        (b"test", b"4:test"),
+        (0, b"i0e"),
+        ([], b"le"),
+        ({}, b"de"),
+    ],
+)
 def test_parametrized_encode(data, expected):
     """Parametrized test for various encode scenarios."""
     encoder = Encoder()

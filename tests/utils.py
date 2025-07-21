@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_torrent_file(payload_file: str, tracker: str, workspace: str) -> str:
-    """Create the torrent file for the content of the payload dir in the workspace"""
+    """Create the torrent file for the content of the payload in the workspace"""
     payload_path = Path(workspace) / payload_file
 
     fs = lt.file_storage()

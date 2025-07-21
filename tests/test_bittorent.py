@@ -10,7 +10,7 @@ import pytest
 
 from src.client import SimpleClient
 from src.torrent_info import TorrentInfo
-from .utils import create_torrent_file, create_payload, copy_payload
+from .utils import create_torrent_file, copy_payload
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s", level=logging.DEBUG)
 logger = logging.getLogger()
@@ -48,7 +48,7 @@ def create_mock_peer():
         info = lt.torrent_info(torrent)
 
         # Create the temp directory, and copy the asset to it
-        peer_dir = Path(workspace_dir) / f"peer_{port}"
+        peer_dir = Path(workspace_dir) / PEER_DIR_FMT.format(port)
         peer_dir.mkdir(exist_ok=True)
 
         if payload:
@@ -86,23 +86,18 @@ async def test_simple_download(workspace, create_mock_peer):
     torrent_file = create_torrent_file(payload_file, TRACKER_URL, workspace)
 
     # Create a seeding peer
-    seeder = create_mock_peer(6881, payload_file, torrent_file, workspace)
+    create_mock_peer(6881, payload_file, torrent_file, workspace)
 
     # Give the seeder time to start up and connect to tracker
     await asyncio.sleep(2)
 
-    # Load torrent info and create our client
-    torrent_info = TorrentInfo.from_file(torrent_file)
-    assert torrent_info
-
-    client = SimpleClient()
-
     # Attempt to fetch the first piece
     logger.info("Attempting to fetch first piece with our client")
-    result = await client.fetch_first_piece(torrent_info)
+    client = SimpleClient()
+    result = await client.fetch_first_piece(torrent_file)
 
     # Verify we successfully connected and fetched without errors
-    assert result is True, "Client should have successfully fetched the first piece"
+    assert result, "Client should have successfully fetched the first piece"
     logger.info("Successfully fetched first piece!")
 
 

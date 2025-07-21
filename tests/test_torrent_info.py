@@ -23,7 +23,7 @@ class TestTorrentInfo:
                 b"length": 1024,
                 b"piece length": 16384,
                 b"pieces": b"12345678901234567890" * 3,  # 3 pieces, 20 bytes each
-            }
+            },
         }
 
     @pytest.fixture
@@ -37,9 +37,9 @@ class TestTorrentInfo:
                 b"pieces": b"12345678901234567890" * 2,
                 b"files": [
                     {b"length": 512, b"path": [b"file1.txt"]},
-                    {b"length": 256, b"path": [b"subdir", b"file2.txt"]}
-                ]
-            }
+                    {b"length": 256, b"path": [b"subdir", b"file2.txt"]},
+                ],
+            },
         }
 
     @pytest.fixture
@@ -88,7 +88,7 @@ class TestTorrentInfo:
         info_bencoded = encoder.encode(sample_metainfo[b"info"])
         expected_hash = hashlib.sha1(info_bencoded).digest()
         expected_hex = hashlib.sha1(info_bencoded).hexdigest()
-        
+
         hash_digest, hash_hex = torrent_info.info_hash
         assert hash_digest == expected_hash
         assert hash_hex == expected_hex
@@ -101,64 +101,65 @@ class TestTorrentInfo:
         assert "Piece Length: 16384" in str_repr
         assert "Info Hash:" in str_repr
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_get_peers_success(self, mock_get, torrent_info):
         """Test successful peer retrieval from tracker."""
         # Mock successful tracker response
         # Compact peer format: 4 bytes IP + 2 bytes port
-        peer1 = b'\x7f\x00\x00\x01\x1a\xe1'  # 127.0.0.1:6881
-        peer2 = b'\xc0\xa8\x01\x02\x1a\xe2'  # 192.168.1.2:6882
-        
+        peer1 = b"\x7f\x00\x00\x01\x1a\xe1"  # 127.0.0.1:6881
+        peer2 = b"\xc0\xa8\x01\x02\x1a\xe2"  # 192.168.1.2:6882
+
         mock_response = Mock()
         mock_response.ok = True
-        mock_response.content = Encoder().encode({
-            b"interval": 1800,
-            b"peers": peer1 + peer2
-        })
+        mock_response.content = Encoder().encode(
+            {b"interval": 1800, b"peers": peer1 + peer2}
+        )
         mock_get.return_value = mock_response
-        
+
         peers = torrent_info.get_peers()
-        
+
         assert len(peers) == 2
         assert peers[0] == ("127.0.0.1", 6881)
         assert peers[1] == ("192.168.1.2", 6882)
-        
+
         # Verify request parameters
         mock_get.assert_called_once()
         call_args = mock_get.call_args
         assert call_args[0][0] == torrent_info.url
-        params = call_args[1]['params']
-        assert params['info_hash'] == torrent_info.info_hash[0]
-        assert params['peer_id'] == "Hj5kP9xZ2qLmNb7vYc3w"
-        assert params['port'] == 6881
-        assert params['uploaded'] == 0
-        assert params['downloaded'] == 0
-        assert params['left'] == torrent_info.length
-        assert params['compact'] == 1
+        params = call_args[1]["params"]
+        assert params["info_hash"] == torrent_info.info_hash[0]
+        assert params["peer_id"] == "Hj5kP9xZ2qLmNb7vYc3w"
+        assert params["port"] == 6881
+        assert params["uploaded"] == 0
+        assert params["downloaded"] == 0
+        assert params["left"] == torrent_info.length
+        assert params["compact"] == 1
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_get_peers_failure(self, mock_get, torrent_info):
         """Test failed peer retrieval from tracker."""
         mock_response = Mock()
         mock_response.ok = False
         mock_response.status_code = 404
         mock_get.return_value = mock_response
-        
+
         with pytest.raises(Exception) as exc_info:
             torrent_info.get_peers()
         assert "404" in str(exc_info.value)
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_get_peers_empty_list(self, mock_get, torrent_info):
         """Test peer retrieval with empty peer list."""
         mock_response = Mock()
         mock_response.ok = True
-        mock_response.content = Encoder().encode({
-            b"interval": 1800,
-            b"peers": b""  # Empty peer list
-        })
+        mock_response.content = Encoder().encode(
+            {
+                b"interval": 1800,
+                b"peers": b"",  # Empty peer list
+            }
+        )
         mock_get.return_value = mock_response
-        
+
         peers = torrent_info.get_peers()
         assert peers == []
 
@@ -171,14 +172,14 @@ class TestTorrentInfo:
                 b"name": b"test.txt",
                 b"length": 100,
                 b"piece length": 16384,
-                b"pieces": b"12345678901234567890"
-            }
+                b"pieces": b"12345678901234567890",
+            },
         }
-        
+
         torrent_file = tmp_path / "test.torrent"
         encoder = Encoder()
         torrent_file.write_bytes(encoder.encode(metainfo))
-        
+
         ti = TorrentInfo.from_file(str(torrent_file))
         assert ti is not None
         assert ti.url == "http://test.com/announce"
@@ -193,7 +194,7 @@ class TestTorrentInfo:
         """Test from_file with invalid torrent data."""
         invalid_file = tmp_path / "invalid.torrent"
         invalid_file.write_bytes(b"not a valid torrent file")
-        
+
         with pytest.raises(ValueError):
             TorrentInfo.from_file(str(invalid_file))
 
@@ -211,14 +212,12 @@ class TestTorrentInfoIntegration:
         """Test with a real torrent file created by libtorrent."""
         # Create a test payload
         payload_file = create_payload(workspace, size=1024)
-        
+
         # Create torrent file
         torrent_file = create_torrent_file(
-            Path(payload_file).name,
-            "http://localhost:8080/announce",
-            workspace
+            Path(payload_file).name, "http://localhost:8080/announce", workspace
         )
-        
+
         # Load and verify torrent
         ti = TorrentInfo.from_file(torrent_file)
         assert ti is not None
@@ -226,7 +225,7 @@ class TestTorrentInfoIntegration:
         assert ti.length == 1024
         assert ti.piece_length > 0
         assert len(ti.pieces) > 0
-        
+
         # Verify info hash format
         hash_digest, hash_hex = ti.info_hash
         assert isinstance(hash_digest, bytes)
@@ -238,14 +237,12 @@ class TestTorrentInfoIntegration:
         """Test string representation with real torrent."""
         payload_file = create_payload(workspace, size=2048)
         torrent_file = create_torrent_file(
-            Path(payload_file).name,
-            "http://example.com/announce",
-            workspace
+            Path(payload_file).name, "http://example.com/announce", workspace
         )
-        
+
         ti = TorrentInfo.from_file(torrent_file)
         str_repr = str(ti)
-        
+
         assert "Tracker URL: http://example.com/announce" in str_repr
         assert "Length: 2048" in str_repr
         assert "Info Hash:" in str_repr

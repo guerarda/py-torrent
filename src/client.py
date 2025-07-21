@@ -1,7 +1,5 @@
 import asyncio
 import logging
-import math
-import socket
 import struct
 
 from .torrent_info import TorrentInfo
@@ -12,19 +10,14 @@ logger = logging.getLogger()
 
 
 class SimpleClient:
-    def __init__(self):
-        self.peers: dict[str, socket.socket] = {}
+    async def fetch_first_piece(self, metainfo_file: str) -> bytearray:
+        torrent = TorrentInfo.from_file(metainfo_file)
+        assert torrent
 
-    async def fetch_first_piece(self, info: TorrentInfo):
-        peers = info.get_peers()
-        peer = peers[0]
+        peers = torrent.get_peers()
+        addr, port = peers[0]
 
-        return await self.connect_and_fetch(info, peer)
-
-    async def connect_and_fetch(
-        self, tracker: TorrentInfo, peer: tuple[str, int]
-    ) -> bool:
-        reader, writer = await asyncio.open_connection(peer[0], peer[1])
+        reader, writer = await asyncio.open_connection(addr, port)
 
         # Do Handshake
         writer.write(
@@ -32,7 +25,7 @@ class SimpleClient:
                 ">B19s8x20s20s",
                 19,
                 b"BitTorrent protocol",
-                tracker.info_hash[0],
+                torrent.info_hash[0],
                 MY_PEER_ID.encode(),
             )
         )
@@ -42,6 +35,7 @@ class SimpleClient:
         # Wait for response: the id of the peer we connected to.
         response = await reader.readexactly(68)
         peer_id = response[-20:]
+        logger.info(f"Connected to {peer_id=}")
 
         # Expect bitfield message
         logger.info("Expecting 'bitfield' message")
@@ -72,7 +66,7 @@ class SimpleClient:
         # Block size calculation
         block_size = 16 * 2**10
 
-        q, r = divmod(tracker.piece_length, block_size)
+        q, r = divmod(torrent.piece_length, block_size)
         if r > 0:
             block_count = q + 1
             last_block_size = r
@@ -81,7 +75,7 @@ class SimpleClient:
             last_block_size = block_size
 
         # Allocate the bytearray we're goign to write the piece data to
-        data = bytearray(tracker.piece_length)
+        data = bytearray(torrent.piece_length)
 
         logger.info(f"{block_count=}, {block_size=}, {last_block_size=}")
         # Request each block for the piece, sequentially
@@ -117,5 +111,4 @@ class SimpleClient:
                     break
 
         writer.close()
-
-        return True
+        return data
