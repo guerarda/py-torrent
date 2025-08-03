@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import struct
+from pathlib import Path
 
 from .torrent_info import TorrentInfo
 
@@ -10,7 +11,7 @@ logger = logging.getLogger()
 
 
 class SimpleClient:
-    async def fetch_first_piece(self, metainfo_file: str) -> bytearray:
+    async def fetch_first_piece(self, metainfo_file: str, output: str) -> bool:
         torrent = TorrentInfo.from_file(metainfo_file)
         assert torrent
 
@@ -111,4 +112,8 @@ class SimpleClient:
                     break
 
         writer.close()
-        return data
+
+        with open(Path(output) / torrent.file, "wb") as f:
+            f.write(data)
+
+        return True

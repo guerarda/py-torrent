@@ -9,8 +9,7 @@ import libtorrent as lt
 import pytest
 
 from src.client import SimpleClient
-from src.torrent_info import TorrentInfo
-from .utils import create_torrent_file, copy_payload
+from .utils import create_payload, create_torrent_file, copy_payload, calculate_sha256
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s", level=logging.DEBUG)
 logger = logging.getLogger()
@@ -82,7 +81,7 @@ def create_mock_peer():
 async def test_simple_download(workspace, create_mock_peer):
     """Test downloading first piece from a single seeder using our Client"""
     # Create a small payload (smaller than default piece size)
-    payload_file = copy_payload("image.png", ASSETS_DIR, workspace)
+    payload_file = create_payload(workspace, 16 * 2**10)
     torrent_file = create_torrent_file(payload_file, TRACKER_URL, workspace)
 
     # Create a seeding peer
@@ -91,14 +90,43 @@ async def test_simple_download(workspace, create_mock_peer):
     # Give the seeder time to start up and connect to tracker
     await asyncio.sleep(2)
 
+    # Create download directory
+    download_dir = Path(workspace) / "download"
+    download_dir.mkdir(exist_ok=True)
+
     # Attempt to fetch the first piece
     logger.info("Attempting to fetch first piece with our client")
     client = SimpleClient()
-    result = await client.fetch_first_piece(torrent_file)
+    result = await client.fetch_first_piece(torrent_file, str(download_dir))
 
     # Verify we successfully connected and fetched without errors
     assert result, "Client should have successfully fetched the first piece"
     logger.info("Successfully fetched first piece!")
+
+    # Verify the downloaded file exists
+    downloaded_file = download_dir / Path(payload_file).name
+
+    assert downloaded_file.exists(), (
+        f"Downloaded file should exist at {downloaded_file}"
+    )
+
+    # Calculate checksums for comparison
+    original_checksum = calculate_sha256(payload_file)
+    downloaded_checksum = calculate_sha256(str(downloaded_file))
+
+    logger.info(f"Original checksum: {original_checksum}")
+    logger.info(f"Downloaded checksum: {downloaded_checksum}")
+
+    assert original_checksum == downloaded_checksum, (
+        "Downloaded file checksum should match original"
+    )
+
+    # Verify file size matches
+    original_size = Path(payload_file).stat().st_size
+    downloaded_size = downloaded_file.stat().st_size
+    assert original_size == downloaded_size, (
+        f"File sizes should match: {original_size} != {downloaded_size}"
+    )
 
 
 def test_mult_peers_download_copy(workspace, create_mock_peer):

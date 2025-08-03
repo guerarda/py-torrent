@@ -47,6 +47,16 @@ class TorrentInfo:
     def piece_length(self):
         return self.info[b"piece length"]
 
+    @property
+    def file(self):
+        if b"files" not in self.info:
+            return self.info[b"name"].decode()
+
+        # For multi-file torrents, return the first file's path
+        first_file = self.info[b"files"][0]
+        path_components = [p.decode() for p in first_file[b"path"]]
+        return "/".join(path_components)
+
     def get_peers(self):
         req = {
             "info_hash": self.info_hash[0],

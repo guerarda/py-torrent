@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import shutil
 from pathlib import Path
@@ -27,6 +28,19 @@ def create_torrent_file(payload_file: str, tracker: str, workspace: str) -> str:
 
     logger.debug(f"Torrent file: {str(torrent_path)}")
 
+    # Dump torrent info for debugging
+    info = lt.torrent_info(str(torrent_path))
+    logger.debug("Torrent details:")
+    logger.debug(f"  Name: {info.name()}")
+    logger.debug(f"  Total size: {info.total_size()} bytes")
+    logger.debug(f"  Piece length: {info.piece_length()} bytes")
+    logger.debug(f"  Num pieces: {info.num_pieces()}")
+    logger.debug(f"  Info hash: {info.info_hash()}")
+    logger.debug(f"  Files: {info.num_files()}")
+    for i in range(info.num_files()):
+        f = info.file_at(i)
+        logger.debug(f"    {info.files().file_path(i)}: {f.size} bytes")
+
     return str(torrent_path)
 
 
@@ -44,3 +58,12 @@ def copy_payload(payload: str, assets_dir: str, workspace: str) -> str:
     logger.debug(f"Payload file: {str(output)}")
 
     return str(output)
+
+
+def calculate_sha256(file_path: str) -> str:
+    """Calculate SHA-256 checksum of a file"""
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while chunk := f.read(8192):
+            sha256.update(chunk)
+    return sha256.hexdigest()
